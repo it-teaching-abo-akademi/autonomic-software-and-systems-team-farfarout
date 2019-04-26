@@ -41,9 +41,18 @@ class Executor(object):
   def update_control(self, destination, additional_vars, delta_time):
     #calculate throttle and heading
     control = carla.VehicleControl()
-    control.throttle = 0.0
-    control.steer = 0.0
-    control.brake = 0.0
+
+    position = self.vehicle.get_transform().location
+    print "Destination: ", position.distance(carla.Location(destination))
+    
+    if position.distance(carla.Location(destination)) > 15:
+      control.throttle = 1.0
+      control.brake = 0.0
+    if position.distance(carla.Location(destination)) < 10:
+      control.throttle = 0.0    
+      control.brake = 1.0
+    
+    control.steer = 0.0    
     control.hand_brake = False
     self.vehicle.apply_control(control)
 
