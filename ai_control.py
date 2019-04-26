@@ -42,27 +42,41 @@ class Executor(object):
     #calculate throttle and heading
     control = carla.VehicleControl()
 
-    max_velocity = 1
+    max_velocity = 10
 
     position = self.vehicle.get_transform().location
     velocity3D = self.vehicle.get_velocity()
-    velocity = np.linalg.norm(np.array([velocity3D.x, velocity3D.y, velocity3D.z])) 
+    velocity_vec = np.array([velocity3D.x, velocity3D.y, velocity3D.z]) 
+    velocity_mag = np.linalg.norm(velocity_vec)
     #print "Distance: ", position.distance(carla.Location(destination))
     
     # Throttle and brake
     if position.distance(carla.Location(destination)) > 5:
-      if velocity < max_velocity:
-        control.throttle = 1.0
-        control.brake = 0.0
-      else:
-        control.throttle = 0.0
-        control.brake = 0.0
+      control.throttle = (max_velocity - velocity_mag) / max_velocity
+      control.brake = 0.0
     else:
       control.throttle = 0.0
       control.brake = 1.0
     
+    # Steering
+    destination_vec = destination - position
+    destination_vec = np.array([destination_vec.x, destination_vec.y, destination_vec.z])
 
-    control.steering = 0.0
+    destination_norm = destination_vec / np.linalg.norm(destination_vec)
+    velocity_norm = velocity_vec / np.linalg.norm(velocity_vec)    
+
+    cross = np.cross(velocity_norm, destination_norm) 
+    angle = math.degrees(math.acos(np.dot(velocity_norm, destination_norm)))
+    
+    np.set_printoptions(suppress=True)
+    steering_angle = angle if np.dot(np.array([0,0,1]), cross) > 0 else -angle
+
+    print "Speed: ", velocity_mag
+
+    if (velocity_mag > 0.5 and steering_angle > 5):
+      control.steer = steering_angle / 70
+    else:
+      control.steer = 0.0
 
     control.hand_brake = False
     self.vehicle.apply_control(control)
