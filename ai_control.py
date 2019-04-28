@@ -41,9 +41,46 @@ class Executor(object):
   def update_control(self, destination, additional_vars, delta_time):
     #calculate throttle and heading
     control = carla.VehicleControl()
-    control.throttle = 0.0
-    control.steer = 0.0
-    control.brake = 0.0
+
+    max_velocity = 10
+
+    position = self.vehicle.get_transform().location
+    velocity3D = self.vehicle.get_velocity()
+    velocity_vec = np.array([velocity3D.x, velocity3D.y, velocity3D.z]) 
+    velocity_mag = np.linalg.norm(velocity_vec)
+    #print "Distance: ", position.distance(carla.Location(destination))
+    print "Speed: ", velocity_mag
+
+
+    # Throttle and brake
+    error = (max_velocity - velocity_mag) / max_velocity
+    
+    if (error > 0):
+      control.throttle = 1-error*0.5
+      control.brake = 0.0
+    else:
+      control.throttle = 0.0
+      control.brake = error*0.5
+    
+    # Steering
+    if velocity_mag > 0.1:
+      destination_vec = destination - position
+      destination_vec = np.array([destination_vec.x, destination_vec.y, destination_vec.z])
+
+      destination_norm = destination_vec / np.linalg.norm(destination_vec)
+      velocity_norm = velocity_vec / np.linalg.norm(velocity_vec)    
+
+      cross = np.cross(velocity_norm, destination_norm) 
+      angle = math.degrees(math.acos(np.dot(velocity_norm, destination_norm)))
+      
+      np.set_printoptions(suppress=True)
+      steering_angle = angle if np.dot(np.array([0,0,1]), cross) > 0 else -angle
+
+      control.steer = steering_angle / 80
+
+    else:
+      control.steer = 0.0
+
     control.hand_brake = False
     self.vehicle.apply_control(control)
 
