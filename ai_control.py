@@ -49,8 +49,8 @@ class Executor(object):
     velocity_vec = np.array([velocity3D.x, velocity3D.y, velocity3D.z]) 
     velocity_mag = np.linalg.norm(velocity_vec)
     #print "Distance: ", position.distance(carla.Location(destination))
-    print "Speed: ", velocity_mag
 
+    print "Speed: ", velocity_mag
 
     # Throttle and brake
     error = (max_velocity - velocity_mag) / max_velocity
