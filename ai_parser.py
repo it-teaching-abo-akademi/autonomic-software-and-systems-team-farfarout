@@ -15,6 +15,7 @@ except IndexError:
 import weakref
 import carla
 import ai_knowledge as data
+import numpy as np
 
 
 # Monitor is responsible for reading the data from the sensors and telling it to the knowledge
@@ -28,17 +29,23 @@ class Monitor(object):
     
     self.knowledge.update_data('location', self.vehicle.get_transform().location)
     self.knowledge.update_data('rotation', self.vehicle.get_transform().rotation)
+    self.knowledge.update_data('max_steering', self.vehicle.get_physics_control().wheels[0].steer_angle)
+    self.knowledge.update_data('topology', self.vehicle.get_world().get_map().get_topology())
+
 
     world = self.vehicle.get_world()
     bp = world.get_blueprint_library().find('sensor.other.lane_detector')
     self.lane_detector = world.spawn_actor(bp, carla.Transform(), attach_to=self.vehicle)
     self.lane_detector.listen(lambda event: Monitor._on_invasion(weak_self, event))
 
+
+
   #Function that is called at time intervals to update ai-state
   def update(self, time_elapsed):
     # Update the position of vehicle into knowledge
     self.knowledge.update_data('location', self.vehicle.get_transform().location)
     self.knowledge.update_data('rotation', self.vehicle.get_transform().rotation)
+    self.knowledge.update_data('velocity', self.vehicle.get_velocity())
 
   @staticmethod
   def _on_invasion(weak_self, event):
@@ -55,4 +62,7 @@ class Analyser(object):
 
   #Function that is called at time intervals to update ai-state
   def update(self, time_elapsed):
+    velocity = self.knowledge.retrieve_data('velocity')
+    speed = np.linalg.norm(np.array([velocity.x, velocity.y, velocity.z]))
+    self.knowledge.update_data('speed', speed)
     return
