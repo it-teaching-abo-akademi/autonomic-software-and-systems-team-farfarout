@@ -18,6 +18,7 @@ except IndexError:
 import carla
 import ai_knowledge as data
 from ai_knowledge import Status
+import random
 
 # Executor is responsible for moving the vehicle around
 # In this implementation it only needs to match the steering and speed so that we arrive at provided waypoints
@@ -42,42 +43,48 @@ class Executor(object):
     #calculate throttle and heading
     control = carla.VehicleControl()
 
-    max_speed = 10
-
+    max_speed = self.knowledge.retrieve_data('max_speed')
     speed = self.knowledge.retrieve_data('speed')
 
-    # Throttle and brake
-    error = (max_speed - speed) / max_speed
-    
-    if (error > 0):
-      control.throttle = 1-error*0.5
-      control.brake = 0.0
+    if max_speed > 0:
+
+      position = self.knowledge.get_location()
+
+      heading = self.knowledge.retrieve_data('rotation').get_forward_vector()
+      heading_vec = np.array([heading.x, heading.y, heading.z])
+      
+      # Steering
+      destination_vec = destination - position
+      destination_vec = np.array([destination_vec.x, destination_vec.y, destination_vec.z])
+
+      destination_norm = destination_vec / np.linalg.norm(destination_vec)
+
+      cross = np.cross(heading_vec, destination_norm) 
+      dot_prod = min(max(np.dot(heading_vec, destination_norm), -1), 1)
+      angle = math.degrees(math.acos(dot_prod))
+
+      if (np.dot(np.array([0,0,1]), cross)) < 0:
+        angle = -angle
+
+      max_steering = self.knowledge.retrieve_data('max_steering')
+
+      # Use some damping
+      steering_angle = angle / (max_steering*1.2)
+      control.steer = steering_angle
+
+      # Throttle and brake
+      error = (max_speed - speed) / max_speed
+      
+      if (error > 0):
+        control.throttle = 1-error*0.5
+        control.brake = 0.0
+      else:
+        control.throttle = 0.0
+        control.brake = error*0.5
+
     else:
       control.throttle = 0.0
-      control.brake = error*0.5
-
-
-    heading = self.knowledge.retrieve_data('rotation').get_forward_vector()
-    heading_vec = np.array([heading.x, heading.y, heading.z])
-
-    position = self.knowledge.get_location()
-    
-    # Steering
-    destination_vec = destination - position
-    destination_vec = np.array([destination_vec.x, destination_vec.y, destination_vec.z])
-
-    destination_norm = destination_vec / np.linalg.norm(destination_vec)
-
-    cross = np.cross(heading_vec, destination_norm) 
-    angle = math.degrees(math.acos(np.dot(heading_vec, destination_norm)))
-
-    if (np.dot(np.array([0,0,1]), cross)) < 0:
-      angle = -angle
-
-    max_steering = self.knowledge.retrieve_data('max_steering')
-
-    # Use some damping
-    control.steer = angle / (max_steering*1.2)
+      control.brake = 1.0
 
     control.hand_brake = False
     self.vehicle.apply_control(control)
@@ -120,6 +127,10 @@ class Planner(object):
     #if we are driving, then the current destination is next waypoint
     if status == Status.DRIVING:
       #TODO: Take into account traffic lights and other cars
+
+      # Drawing the current destination
+      self.knowledge.retrieve_data('world').debug.draw_point(self.path[0],
+                                      color=carla.Color(r=0, g=0, b=255), life_time=10.0)
       return self.path[0]
     if status == Status.ARRIVED:
       return self.knowledge.get_location()
@@ -137,27 +148,32 @@ class Planner(object):
   #TODO: Implementation
   def build_path(self, source, destination):
     self.path = deque([])
-    self.path.append(destination)
     #TODO: create path of waypoints from source to
 
-    #client = carla.Client('localhost', 2000)
-    #world = client.get_world()
+    _map = self.knowledge.retrieve_data('map')
+    waypoint = _map.get_waypoint(self.knowledge.get_location())
 
-    #location = self.knowledge.get_location()
+    while True:      
+      nexts = list(waypoint.next(5.0))
+      closest = 0
+      closestDistance = self.knowledge.distance(destination, nexts[0].transform.location)
 
-    #for i in range(1, 10):
-    #  nexts = list(world.get_map().get_waypoint(location).next(20.0))
-    #  print len(nexts)
-    #  location = nexts[0].transform.location
-    #  world.debug.draw_string(location, 'O', draw_shadow=False,
-    #                                   color=carla.Color(r=255, g=0, b=0), life_time=120.0,
-    #                                   persistent_lines=True)
+      # If multiple choices
+      if len(nexts) > 1:        
+        for i in range(1, len(nexts)):
+          dist = self.knowledge.distance(destination, nexts[i].transform.location)
+          if dist < closestDistance:
+            closest = i
+            closestDistance = dist
+        
+      waypoint = nexts[closest]
+      waypoint_loc = waypoint.transform.location
+      self.path.append(waypoint_loc)
+      
+      if self.knowledge.distance(waypoint_loc, destination) < 10:
+        print "Path found"
+        break
 
-    #print location
-    #transform = location.transform
-    #world.vehicle.set_transform(transform)
+    self.path.append(destination)
 
-    #self.path.appendleft()
     return self.path
-
-

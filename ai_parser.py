@@ -31,7 +31,15 @@ class Monitor(object):
     self.knowledge.update_data('rotation', self.vehicle.get_transform().rotation)
     self.knowledge.update_data('max_steering', self.vehicle.get_physics_control().wheels[0].steer_angle)
     self.knowledge.update_data('topology', self.vehicle.get_world().get_map().get_topology())
+    self.knowledge.update_data('map', self.vehicle.get_world().get_map())
 
+    # For debugging
+    self.knowledge.update_data('world', self.vehicle.get_world())
+
+    # Drawing all segments
+    #for segment in self.vehicle.get_world().get_map().get_topology():
+    #  self.vehicle.get_world().debug.draw_line(segment[0].transform.location, segment[1].transform.location,
+    #                                   color=carla.Color(r=255, g=0, b=0), life_time=120.0)
 
     world = self.vehicle.get_world()
     bp = world.get_blueprint_library().find('sensor.other.lane_detector')
@@ -46,6 +54,8 @@ class Monitor(object):
     self.knowledge.update_data('location', self.vehicle.get_transform().location)
     self.knowledge.update_data('rotation', self.vehicle.get_transform().rotation)
     self.knowledge.update_data('velocity', self.vehicle.get_velocity())
+    self.knowledge.update_data('at_lights', self.vehicle.is_at_traffic_light())
+    self.knowledge.update_data('traffic_light_state', self.vehicle.get_traffic_light_state())
 
   @staticmethod
   def _on_invasion(weak_self, event):
@@ -65,4 +75,11 @@ class Analyser(object):
     velocity = self.knowledge.retrieve_data('velocity')
     speed = np.linalg.norm(np.array([velocity.x, velocity.y, velocity.z]))
     self.knowledge.update_data('speed', speed)
+
+    if self.knowledge.retrieve_data('at_lights'):
+      if self.knowledge.retrieve_data('traffic_light_state') == carla.TrafficLightState.Red:
+        self.knowledge.update_data('max_speed', 0)    
+        return
+
+    self.knowledge.update_data('max_speed', 5)
     return

@@ -61,7 +61,7 @@ def main():
  
     try:
         client = carla.Client('localhost', 2000)
-        client.set_timeout(2.0)
+        client.set_timeout(5.0)
         world = client.get_world()
         blueprints = world.get_blueprint_library().filter('vehicle.*')
         blueprints = [x for x in blueprints if int(x.get_attribute('number_of_wheels')) == 4]
