@@ -32,6 +32,8 @@ class Monitor(object):
     self.knowledge.update_data('max_steering', self.vehicle.get_physics_control().wheels[0].steer_angle)
     self.knowledge.update_data('topology', self.vehicle.get_world().get_map().get_topology())
     self.knowledge.update_data('map', self.vehicle.get_world().get_map())
+    self.knowledge.update_data('lidar', 0);
+    self.knowledge.update_data('bb', self.vehicle.bounding_box)
 
     # For debugging
     self.knowledge.update_data('world', self.vehicle.get_world())
@@ -46,6 +48,12 @@ class Monitor(object):
     self.lane_detector = world.spawn_actor(bp, carla.Transform(), attach_to=self.vehicle)
     self.lane_detector.listen(lambda event: Monitor._on_invasion(weak_self, event))
 
+    bp2 = world.get_blueprint_library().find('sensor.lidar.ray_cast')
+    bp2.set_attribute('range', '1000')
+    bp2.set_attribute('rotation_frequency', '360')
+    self.lidar = world.spawn_actor(bp2, carla.Transform(), attach_to=self.vehicle)
+    #self.lidar.set_transform(carla.Transform(carla.Location(z=3)))
+    self.lidar.listen(lambda event: Monitor._lidar_update(weak_self, event))
 
 
   #Function that is called at time intervals to update ai-state
@@ -64,6 +72,13 @@ class Monitor(object):
       return
     self.knowledge.update_data('lane_invasion',event.crossed_lane_markings)
 
+  @staticmethod
+  def _lidar_update(weak_self, event):
+    self = weak_self()
+    if not self:
+      return
+    self.knowledge.update_data('lidar', event)
+
 # Analyser is responsible for parsing all the data that the knowledge has received from Monitor and turning it into something usable
 # TODO: During the update step parse the data inside knowledge into information that could be used by planner to plan the route
 class Analyser(object):
@@ -76,10 +91,21 @@ class Analyser(object):
     speed = np.linalg.norm(np.array([velocity.x, velocity.y, velocity.z]))
     self.knowledge.update_data('speed', speed)
 
+    lidar = self.knowledge.retrieve_data('lidar')
+    car_loc = self.knowledge.retrieve_data('location')
+    bb = self.knowledge.retrieve_data('bb')
+
+    if not lidar == 0:     
+      for location in lidar:
+          print location
+          #rel_loc = carla.Location(car_loc.x+location.x, car_loc.y+location.y, car_loc.z+location.z)
+          #self.knowledge.retrieve_data('world').debug.draw_point(rel_loc,
+          #                              color=carla.Color(r=255, g=0, b=0), life_time=1.0)
+
+    self.knowledge.update_data('max_speed', 5)
+
     if self.knowledge.retrieve_data('at_lights'):
       if self.knowledge.retrieve_data('traffic_light_state') == carla.TrafficLightState.Red:
         self.knowledge.update_data('max_speed', 0)    
-        return
-
-    self.knowledge.update_data('max_speed', 5)
+    
     return
