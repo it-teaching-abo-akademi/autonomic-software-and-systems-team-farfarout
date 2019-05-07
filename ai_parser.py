@@ -49,15 +49,13 @@ class Monitor(object):
     self.lane_detector.listen(lambda event: Monitor._on_invasion(weak_self, event))
 
     bp2 = world.get_blueprint_library().find('sensor.lidar.ray_cast')
-    bp2.set_attribute('range', '1000')
-    bp2.set_attribute('points_per_second', '1000')
+    bp2.set_attribute('range', '500')
+    bp2.set_attribute('points_per_second', '10000')
     bp2.set_attribute('channels', '9')
-    bp2.set_attribute('upper_fov', '0')
-    bp2.set_attribute('lower_fov', '-45')
-    bp2.set_attribute('sensor_tick', '0.5')
-    #bp2.set_attribute('rotation_frequency', '360')
-    self.lidar = world.spawn_actor(bp2, carla.Transform(), attach_to=self.vehicle)
-    self.lidar.set_transform(carla.Transform(carla.Location(z=2)))
+    bp2.set_attribute('upper_fov', '-10')
+    bp2.set_attribute('lower_fov', '-30')
+    bp2.set_attribute('sensor_tick', '0.1')
+    self.lidar = world.spawn_actor(bp2, carla.Transform(carla.Location(z=3)), attach_to=self.vehicle)
     self.lidar.listen(lambda event: Monitor._lidar_update(weak_self, event))
 
 
@@ -100,12 +98,15 @@ class Analyser(object):
     car_loc = self.knowledge.retrieve_data('location')
     bb = self.knowledge.retrieve_data('bb')
 
+    self.knowledge.retrieve_data('world').debug.draw_point(self.knowledge.retrieve_data('location')+carla.Location(z=3),
+                                        color=carla.Color(r=255, g=0, b=255), life_time=1.0)
+
     if not lidar == 0:     
-      for location in lidar:
-          #print location
-          rel_loc = carla.Location(car_loc.x+location.x, car_loc.y+location.y, car_loc.z+location.z+2)
-          self.knowledge.retrieve_data('world').debug.draw_point(rel_loc,
-                                        color=carla.Color(r=255, g=0, b=0), life_time=1.0)
+      for point in lidar:
+          rel_loc = carla.Location(car_loc.x+point.y, car_loc.y+point.x*-1, 3+car_loc.z+point.z*-1)
+          if rel_loc.z > 0.3:
+            self.knowledge.retrieve_data('world').debug.draw_string(rel_loc, "O",
+                                      color=carla.Color(r=255, g=0, b=0), life_time=1.0)
 
     self.knowledge.update_data('max_speed', 5)
 
