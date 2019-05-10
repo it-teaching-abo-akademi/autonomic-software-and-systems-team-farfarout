@@ -101,11 +101,13 @@ class Analyser(object):
     if not lidar == 0:     
       for point in lidar:          
           rel_loc = carla.Location(car_loc.x+point.y, car_loc.y+point.x*-1, 3+car_loc.z+point.z*-1)
-          # Disregard the ground, the vehicle that the lidar is on and only consider things that are within 3 meters
+
+          # Disregard the ground, the vehicle that the lidar is on and only consider things that are within 3 meters from the lidar
           if rel_loc.z > 0.5 and point.x > bb.extent.x and self.knowledge.distance(rel_loc, car_loc) < 3:
-            #print self.knowledge.distance(rel_loc, car_loc)
             self.knowledge.update_data('lidar_close', point)
-            self.knowledge.retrieve_data('world').debug.draw_string(rel_loc, "O",
-                                      color=carla.Color(r=255, g=0, b=0), life_time=1.0) 
+            
+            # Drawing where the lidar points are close
+            #self.knowledge.retrieve_data('world').debug.draw_string(rel_loc, "O",
+            #                          color=carla.Color(r=255, g=0, b=0), life_time=1.0) 
     
     return
