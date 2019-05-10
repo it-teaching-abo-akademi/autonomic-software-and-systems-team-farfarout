@@ -170,13 +170,17 @@ class Planner(object):
         if waypoint.get_left_lane() and waypoint.get_left_lane().lane_type == "driving":
           nexts.extend(list(waypoint.get_left_lane().next(5.0)))
       else:
-        nexts = list(waypoint.next(20.0))
+        nexts = list(waypoint.next(10.0))
+        if nexts[0].is_intersection: 
+          # Add more options if at junction       
+          nexts.extend(list(waypoint.next(5.0)))
+          nexts.extend(list(waypoint.next(15.0)))
 
       closest = 0
       closestDistance = self.knowledge.distance(destination, nexts[0].transform.location)
 
       # If multiple choices
-      if len(nexts) > 1:        
+      if len(nexts) > 1:       
         for i in range(0, len(nexts)):
           dist = self.knowledge.distance(destination, nexts[i].transform.location)
           if dist < closestDistance:
@@ -187,14 +191,13 @@ class Planner(object):
       waypoint_loc = waypoint.transform.location
       self.path.append(waypoint_loc)
 
+      # Drawing the path
+      self.knowledge.retrieve_data('world').debug.draw_point(waypoint_loc, color=carla.Color(r=0, g=0, b=255), life_time=20.0)
       
       if self.knowledge.distance(waypoint_loc, destination) < 10:
         print "Path found"
         break
 
     self.path.append(destination)
-
-    for waypoint in self.path:
-      self.knowledge.retrieve_data('world').debug.draw_point(waypoint, color=carla.Color(r=0, g=0, b=255), life_time=10.0)
 
     return self.path
