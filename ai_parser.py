@@ -33,15 +33,12 @@ class Monitor(object):
     self.knowledge.update_data('topology', self.vehicle.get_world().get_map().get_topology())
     self.knowledge.update_data('map', self.vehicle.get_world().get_map())
     self.knowledge.update_data('lidar', 0);
+    self.knowledge.update_data('lidar_close', 0)
     self.knowledge.update_data('bb', self.vehicle.bounding_box)
+    self.knowledge.update_data('at_lights', False)
 
     # For debugging
     self.knowledge.update_data('world', self.vehicle.get_world())
-
-    # Drawing all segments
-    #for segment in self.vehicle.get_world().get_map().get_topology():
-    #  self.vehicle.get_world().debug.draw_line(segment[0].transform.location, segment[1].transform.location,
-    #                                   color=carla.Color(r=255, g=0, b=0), life_time=120.0)
 
     world = self.vehicle.get_world()
     bp = world.get_blueprint_library().find('sensor.other.lane_detector')
@@ -51,9 +48,9 @@ class Monitor(object):
     bp2 = world.get_blueprint_library().find('sensor.lidar.ray_cast')
     bp2.set_attribute('range', '500')
     bp2.set_attribute('points_per_second', '10000')
-    bp2.set_attribute('channels', '9')
+    bp2.set_attribute('channels', '8')
     bp2.set_attribute('upper_fov', '-10')
-    bp2.set_attribute('lower_fov', '-30')
+    bp2.set_attribute('lower_fov', '-55')
     bp2.set_attribute('sensor_tick', '0.1')
     self.lidar = world.spawn_actor(bp2, carla.Transform(carla.Location(z=3)), attach_to=self.vehicle)
     self.lidar.listen(lambda event: Monitor._lidar_update(weak_self, event))
@@ -90,6 +87,9 @@ class Analyser(object):
 
   #Function that is called at time intervals to update ai-state
   def update(self, time_elapsed):
+    # Defaul state
+    self.knowledge.update_data('lidar_close', 0)
+
     velocity = self.knowledge.retrieve_data('velocity')
     speed = np.linalg.norm(np.array([velocity.x, velocity.y, velocity.z]))
     self.knowledge.update_data('speed', speed)
@@ -98,20 +98,14 @@ class Analyser(object):
     car_loc = self.knowledge.retrieve_data('location')
     bb = self.knowledge.retrieve_data('bb')
 
-    self.knowledge.retrieve_data('world').debug.draw_point(self.knowledge.retrieve_data('location')+carla.Location(z=3),
-                                        color=carla.Color(r=255, g=0, b=255), life_time=1.0)
-
     if not lidar == 0:     
-      for point in lidar:
+      for point in lidar:          
           rel_loc = carla.Location(car_loc.x+point.y, car_loc.y+point.x*-1, 3+car_loc.z+point.z*-1)
-          if rel_loc.z > 0.3:
+          # Disregard the ground, the vehicle that the lidar is on and only consider things that are within 3 meters
+          if rel_loc.z > 0.5 and point.x > bb.extent.x and self.knowledge.distance(rel_loc, car_loc) < 3:
+            #print self.knowledge.distance(rel_loc, car_loc)
+            self.knowledge.update_data('lidar_close', point)
             self.knowledge.retrieve_data('world').debug.draw_string(rel_loc, "O",
-                                      color=carla.Color(r=255, g=0, b=0), life_time=1.0)
-
-    self.knowledge.update_data('max_speed', 5)
-
-    if self.knowledge.retrieve_data('at_lights'):
-      if self.knowledge.retrieve_data('traffic_light_state') == carla.TrafficLightState.Red:
-        self.knowledge.update_data('max_speed', 0)    
+                                      color=carla.Color(r=255, g=0, b=0), life_time=1.0) 
     
     return
