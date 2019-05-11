@@ -128,12 +128,6 @@ class Planner(object):
     #if we are driving, then the current destination is next waypoint
     if status == Status.DRIVING:
       #TODO: Take into account traffic lights and other cars
-      self.knowledge.update_data('max_speed', 5)
-
-      if self.knowledge.retrieve_data('at_lights'):
-        if self.knowledge.retrieve_data('traffic_light_state') == carla.TrafficLightState.Red:
-          self.knowledge.update_data('max_speed', 0)   
-
       if self.knowledge.retrieve_data('lidar_close') != 0:
         status = Status.HEALING
         return self.knowledge.get_location()

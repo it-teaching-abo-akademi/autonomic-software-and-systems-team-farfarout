@@ -87,13 +87,21 @@ class Analyser(object):
 
   #Function that is called at time intervals to update ai-state
   def update(self, time_elapsed):
-    # Defaul state
+    # Defaul states
     self.knowledge.update_data('lidar_close', 0)
+    self.knowledge.update_data('max_speed', 5)
 
+    # Check if vehicle is at traffic lights, and if so, check if the traffic light currently is red
+    if self.knowledge.retrieve_data('at_lights'):
+      if self.knowledge.retrieve_data('traffic_light_state') == carla.TrafficLightState.Red:
+        self.knowledge.update_data('max_speed', 0)          
+
+    # Convert velocity into speed
     velocity = self.knowledge.retrieve_data('velocity')
     speed = np.linalg.norm(np.array([velocity.x, velocity.y, velocity.z]))
     self.knowledge.update_data('speed', speed)
 
+    # Analyze the lidar data for nearby vehicles
     lidar = self.knowledge.retrieve_data('lidar')
     car_loc = self.knowledge.retrieve_data('location')
     bb = self.knowledge.retrieve_data('bb')
