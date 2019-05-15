@@ -30,7 +30,6 @@ class Monitor(object):
     self.knowledge.update_data('location', self.vehicle.get_transform().location)
     self.knowledge.update_data('rotation', self.vehicle.get_transform().rotation)
     self.knowledge.update_data('max_steering', self.vehicle.get_physics_control().wheels[0].steer_angle)
-    self.knowledge.update_data('topology', self.vehicle.get_world().get_map().get_topology())
     self.knowledge.update_data('map', self.vehicle.get_world().get_map())
     self.knowledge.update_data('lidar', 0);
     self.knowledge.update_data('lidar_close', 0)
